@@ -1,5 +1,6 @@
-import com.cra.figaro.language.{Constant, Select}
+import com.cra.figaro.language._
 import com.cra.figaro.library.atomic.continuous.Normal
+import com.cra.figaro.library.compound.If
 import org.apache.commons.math3.ml.clustering.{Clusterable, KMeansPlusPlusClusterer}
 
 import collection.JavaConversions._
@@ -34,35 +35,36 @@ class Strengths(data: Array[Double]) extends Clusterable  {
 class Sensor(fittingData: List[Strengths]) {
 
   /** Number of dimensions in one strength observation, e.g. how many separate WiFi sources are considered for strengths */
-  val dimensions = fittingData.head.size
-
-  /** The strength distributions [0, 1] of the different WiFi sources */
-  val distributions = for (source <- 0 until dimensions) yield
-    Select(
-      zeroProportions(source) -> Constant(0),
-      1 - zeroProportions(source) -> Normal(nonZeroMeans(source), nonZeroVariances(source))
-    )
-
-  /** The variance of the data points that aren't zero - zeroes are expected to form a separate spike */
-  def nonZeroVariances: Seq[Double] = for (source <- 0 until dimensions) yield fittingData
-    .map(s => s.getStrength(source))
-    .filter(s => s != 0)
-    .map(s => (nonZeroMeans(source) - s) * (nonZeroMeans(source) - s))
-    .sum / (sampleSize * (1 - zeroProportions(source)))
-
-  /** The variance of the data points that aren't zero */
-  def nonZeroMeans: Seq[Double] = for (source <- 0 until dimensions) yield fittingData
-    .map(s => s.getStrength(source))
-    .filter(s => s != 0)
-    .sum / (sampleSize * (1 - zeroProportions(source)))
-
-  /** The zero strength probabilities of each of the WiFi source */
-  def zeroProportions: Seq[Double] = for (source <- 0 until dimensions) yield fittingData
-    .count(s => s.getStrength(source) == 0)
-    .toDouble / fittingData.size
+  val dimensions: Int = fittingData.head.size
 
   /** Size of the samples used to infer the sensor information */
   val sampleSize: Int = fittingData.size
+
+  /** The strength distributions [0, 1] of the different WiFi sources
+    *
+    * TODO: Not quite exact, as the whole gaussian won't fit ]0, 1] like this.
+    */
+  val distributions: Seq[Element[Double]] = for (source <- 0 until dimensions)
+    yield If(Flip(zeroProportions(source)), Constant(0.0), Normal(nonZeroMeans(source), nonZeroVariances(source)))
+
+  /** The variance of the data points that aren't zero - zeroes are expected to form a separate spike */
+  def nonZeroVariances: Seq[Double] = for (source <- 0 until dimensions)
+    yield fittingData.map(s => s.getStrength(source))
+      .filter(s => s != 0)
+      .map(s => (nonZeroMeans(source) - s) * (nonZeroMeans(source) - s))
+      .sum / (sampleSize * (1 - zeroProportions(source)))
+
+  /** The variance of the data points that aren't zero */
+  def nonZeroMeans: Seq[Double] = for (source <- 0 until dimensions)
+    yield fittingData.map(s => s.getStrength(source))
+      .filter(s => s != 0)
+      .sum / (sampleSize * (1 - zeroProportions(source)))
+
+  /** The zero strength probabilities of each of the WiFi source */
+  def zeroProportions: Seq[Double] = for (source <- 0 until dimensions)
+    yield fittingData.count(s => s.getStrength(source) == 0)
+      .toDouble / fittingData.size
+
 }
 
 /** WiFi sensor discovery functionality
