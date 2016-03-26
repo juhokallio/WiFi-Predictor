@@ -1,12 +1,13 @@
 import com.cra.figaro.algorithm.factored.VariableElimination
 import com.cra.figaro.language.Apply
 import com.cra.figaro.language._
+import com.cra.figaro.library.atomic.discrete.Uniform
 
 /** Inference for WiFi strengths
   */
 object StrengthPredictor {
 
-  /** Predicts a discrete distribution for WiFi strengths 0-99
+  /** Predicts a discrete distribution for WiFi strengths 0-99 based on one sensor
     *
     * TODO: make sure 99 is the highest and not e.g. 100. Sample data never goes higher than 87 though.
     *
@@ -18,6 +19,31 @@ object StrengthPredictor {
     val dist: Element[Double] = sensor.distributions(source)
     val valueConditions: Seq[Element[Boolean]] = for (value <- 0 until 100)
       yield Apply(dist, (v: Double) => v >= value - 0.05 && v < value + 0.05)
+
+    val alg = VariableElimination(valueConditions:_*)
+    alg.start()
+    alg.stop()
+
+    val p: Seq[Double] = for (c <- valueConditions)
+      yield alg.probability(c, true)
+    alg.kill()
+    p
+  }
+
+  /** Predicts a discrete distribution for WiFi strengths 0-99 based on a seq of sensors
+    *
+    * This isn't likely to be useful for the real problem and was created more as a middle step for simplifying the
+    * development process. This assumes uniform distribution between the sensors.
+    *
+    * @param sensors  Sensors for which the the prediction is done
+    * @param source   WiFi signal source index
+    * @return         List of probabilities, one for each value 0-99
+    */
+  def predict(sensors: Seq[Sensor], source: Int): Seq[Double] = {
+    val sensorDistribution = Uniform(sensors:_*)
+    val strengthDistribution = Chain(sensorDistribution, (s: Sensor) => s.distributions(source))
+    val valueConditions: Seq[Element[Boolean]] = for (value <- 0 until 100)
+      yield Apply(strengthDistribution, (v: Double) => v >= value - 0.05 && v < value + 0.05)
 
     val alg = VariableElimination(valueConditions:_*)
     alg.start()
