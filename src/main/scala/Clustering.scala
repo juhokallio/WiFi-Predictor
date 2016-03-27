@@ -9,15 +9,15 @@ import scala.collection.mutable
 /** WiFi strength observations. Implements the Clusterable Java interface, which is needed for Apache Commons
   * clustering methods.
   *
-  * @param data Array of WiFi source strengths
+  * @param data Array of WiFi source strengths, 0-100
   */
-class Strengths(data: Array[Double]) extends Clusterable  {
+class Strengths(data: Array[Int]) extends Clusterable  {
 
   /** The number of separate WiFi sources that have been measured for strengths */
   val size = data.length
 
   /** Returns the WiFi source strength data. Needed for Apache Commons clustering. */
-  override def getPoint: Array[Double] = data
+  override def getPoint: Array[Double] = data.map(s => s.toDouble)
 
   /** Gets the Wifi strength of the given source device index */
   def getStrength(source: Int): Double = data(source)
@@ -40,19 +40,28 @@ class Sensor(fittingData: List[Strengths]) {
   /** Size of the samples used to infer the sensor information */
   val sampleSize: Int = fittingData.size
 
-  /** The strength distributions [0, 1] of the different WiFi sources
+  /** The strength distributions [0, 100] of the different WiFi sources
     *
-    * TODO: Not quite exact, as the whole gaussian won't fit ]0, 1] like this.
+    * TODO: Not quite exact, as the whole gaussian won't fit ]0, 100] like this.
     */
   val distributions: Seq[Element[Double]] = for (source <- 0 until dimensions)
-    yield If(Flip(zeroProportions(source)), Constant(0.0), Normal(nonZeroMeans(source), nonZeroVariances(source)))
+    yield {
+      val zeroP = zeroProportions(source)
+      zeroP match {
+        case 1.0 => Constant(0.0)
+        case _ => If(Flip(zeroP), Constant(0.0), Normal(nonZeroMeans(source), math.max(nonZeroVariances(source), 1.0)))
+      }
+    }
 
   /** The variance of the data points that aren't zero - zeroes are expected to form a separate spike */
-  def nonZeroVariances: Seq[Double] = for (source <- 0 until dimensions)
-    yield fittingData.map(s => s.getStrength(source))
+  def nonZeroVariances: Seq[Double] = for (source <- 0 until dimensions) yield {
+    // With n = 1 variance is undefined and yet we want to have there something, so... Could think this a bit more.
+    val n = math.max(sampleSize * (1 - zeroProportions(source)), 2)
+    fittingData.map(s => s.getStrength(source))
       .filter(s => s != 0)
       .map(s => (nonZeroMeans(source) - s) * (nonZeroMeans(source) - s))
-      .sum / (sampleSize * (1 - zeroProportions(source)))
+      .sum / (n - 1)
+  }
 
   /** The variance of the data points that aren't zero */
   def nonZeroMeans: Seq[Double] = for (source <- 0 until dimensions)

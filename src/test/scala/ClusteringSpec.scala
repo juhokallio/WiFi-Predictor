@@ -10,10 +10,10 @@ class ClusteringSpec extends FlatSpec {
   implicit val doubleEq = TolerantNumerics.tolerantDoubleEquality(epsilon)
 
   val simpleStrengths = List(
-    new Strengths(Array(1.0)),
-    new Strengths(Array(1.1)),
-    new Strengths(Array(3.0)),
-    new Strengths(Array(3.1))
+    new Strengths(Array(1)),
+    new Strengths(Array(2)),
+    new Strengths(Array(10)),
+    new Strengths(Array(11))
   )
 
   "findSensors" should "find two sensors when searching for two" in {
@@ -25,12 +25,6 @@ class ClusteringSpec extends FlatSpec {
       yield assert(s.sampleSize == 2)
   }
 
-  "Sensor with one dimensional data" should "have only one distribution" in {
-    val sensor = new Sensor(List(new Strengths(Array(1.0)), new Strengths(Array(2.0))))
-    assert(sensor.distributions.size == 1)
-    assert(sensor.dimensions == 1)
-  }
-
   "findSensors" should "produce sensors with correct zero proportions" in {
     for(s <- Clustering.findSensors(simpleStrengths, 2))
       yield assert(s.zeroProportions.head == 0)
@@ -40,12 +34,13 @@ class ClusteringSpec extends FlatSpec {
     for(s <- Clustering.findSensors(simpleStrengths, 2))
       yield {
         val mean = s.nonZeroMeans.head
-        assert(mean === 1.05 || mean === 3.05)
+        assert(mean === 1.5 || mean === 10.5)
       }
   }
 
   "findSensors" should "produce sensors with correct variances" in {
     for(s <- Clustering.findSensors(simpleStrengths, 2))
-      yield assert(s.nonZeroVariances.head === 0.0025)
+      yield assert(s.nonZeroVariances.head === 0.5)
   }
+
 }
