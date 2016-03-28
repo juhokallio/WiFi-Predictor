@@ -28,14 +28,14 @@ class PredictingSpec extends FlatSpec {
     val observation = new Strengths(Array(99))
     val sensor = new Sensor(List(observation, observation))
     val predicted = StrengthPredictor.predict(sensor, 0)
-    assert(predicted(0) === 0.0)
+    assert(predicted.head === 0.0)
   }
 
   "predicted array zero" should "be near one with dead signal source" in {
     val observation = new Strengths(Array(0))
     val sensor = new Sensor(List(observation, observation))
     val predicted = StrengthPredictor.predict(sensor, 0)
-    assert(predicted(0) === 1.0)
+    assert(predicted.head === 1.0)
   }
 
   "predict with list param" should "return 100 length array" in {
@@ -56,13 +56,13 @@ class PredictingSpec extends FlatSpec {
     val observation = new Strengths(Array(99))
     val sensor = new Sensor(List(observation, observation))
     val predicted = StrengthPredictor.predict(List(sensor), 0)
-    assert(predicted(0) === 0.0)
+    assert(predicted.head === 0.0)
   }
 
   "predicted array zero with list param" should "be near one with dead signal source" in {
     val observation = new Strengths(Array(0))
     val sensor = new Sensor(List(observation, observation))
     val predicted = StrengthPredictor.predict(List(sensor), 0)
-    assert(predicted(0) === 1.0)
+    assert(predicted.head === 1.0)
   }
 }
