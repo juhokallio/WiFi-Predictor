@@ -20,7 +20,7 @@ class Strengths(data: Array[Int]) extends Clusterable  {
   override def getPoint: Array[Double] = data.map(s => s.toDouble)
 
   /** Gets the Wifi strength of the given source device index */
-  def getStrength(source: Int): Double = data(source)
+  def getStrength(source: Int): Int = data(source)
 }
 
 /** Representation of a WiFi sensor

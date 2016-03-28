@@ -77,6 +77,8 @@ object StrengthPredictor {
     */
   def predictSensorDistribution(sensors: Seq[Sensor], observations: Seq[Int]): Select[Double, Sensor] = {
 
+    val universe = Universe.createNew()
+
     val params = ModelParameters()
     Dirichlet(List.fill(sensors.size)(1.0):_*)("sensorDist", params)
 
