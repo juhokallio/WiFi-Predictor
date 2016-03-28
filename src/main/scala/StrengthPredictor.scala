@@ -63,8 +63,7 @@ object StrengthPredictor {
     alg.start()
     alg.stop()
 
-    val p: Seq[Double] = for (c <- valueConditions)
-      yield alg.probability(c, true)
+    val p = valueConditions.map(c => alg.probability(c, true))
     alg.kill()
     p
   }
@@ -82,7 +81,7 @@ object StrengthPredictor {
     val params = ModelParameters()
     Dirichlet(List.fill(sensors.size)(1.0):_*)("sensorDist", params)
 
-    for ((o, sourceIndex) <- observations.zipWithIndex) yield {
+    for ((o, sourceIndex) <- observations.zipWithIndex) {
       val sensorDist = Select(params.priorParameters.get("sensorDist"), sensors:_*)
       val strengthDistribution = Chain(sensorDist, (s: Sensor) => s.distributions(sourceIndex))
       Apply(strengthDistribution, (v: Double) => math.round(v)).observe(o)
