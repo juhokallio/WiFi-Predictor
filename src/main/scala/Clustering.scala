@@ -1,7 +1,5 @@
-import com.cra.figaro.language._
-import com.cra.figaro.library.atomic.continuous.Normal
-import com.cra.figaro.library.compound.If
 import org.apache.commons.math3.ml.clustering.{Clusterable, KMeansPlusPlusClusterer}
+import org.apache.commons.math3.distribution.NormalDistribution
 
 import collection.JavaConversions._
 import scala.collection.mutable
@@ -34,27 +32,23 @@ class Strengths(data: Array[Int]) extends Clusterable  {
   */
 class Sensor(fittingData: List[Strengths]) {
 
+  val SMOOTHING: Double = 1.0 / (dimensions *(sampleSize + 1))
+
   /** Number of dimensions in one strength observation, e.g. how many separate WiFi sources are considered for strengths */
-  val dimensions: Int = fittingData.head.size
+  lazy val dimensions: Int = fittingData.head.size
 
   /** Size of the samples used to infer the sensor information */
-  val sampleSize: Int = fittingData.size
+  lazy val sampleSize: Int = fittingData.size
 
   /** The strength distributions [0, 100] of the different WiFi sources
     *
     * TODO: Not quite exact, as the whole gaussian won't fit ]0, 100] like this.
     */
-  val distributions: Seq[Element[Double]] = for (source <- 0 until dimensions)
-    yield {
-      val zeroP = zeroProportions(source)
-      zeroP match {
-        case 1.0 => Constant(0.0)
-        case _ => If(Flip(zeroP), Constant(0.0), Normal(nonZeroMeans(source), math.max(nonZeroVariances(source), 1.0)))
-      }
-    }
+  val distributions: Seq[NormalDistribution] = for (source <- 0 until dimensions)
+    yield new NormalDistribution(nonZeroMeans(source), math.max(nonZeroVariances(source), 1.0))
 
   /** The variance of the data points that aren't zero - zeroes are expected to form a separate spike */
-  def nonZeroVariances: Seq[Double] = for (source <- 0 until dimensions) yield {
+  lazy val nonZeroVariances: Seq[Double] = for (source <- 0 until dimensions) yield {
     // With n = 1 variance is undefined and yet we want to have there something, so... Could think this a bit more.
     val n = math.max(sampleSize * (1 - zeroProportions(source)), 2)
     fittingData.map(s => s.getStrength(source))
@@ -64,15 +58,29 @@ class Sensor(fittingData: List[Strengths]) {
   }
 
   /** The variance of the data points that aren't zero */
-  def nonZeroMeans: Seq[Double] = for (source <- 0 until dimensions)
-    yield fittingData.map(s => s.getStrength(source))
-      .filter(s => s != 0)
-      .sum / (sampleSize * (1 - zeroProportions(source)))
+  lazy val nonZeroMeans: Seq[Double] = for (source <- 0 until dimensions)
+    yield {
+      val normalProportion = 1 - zeroProportions(source)
+      normalProportion match {
+        case 0 => -10
+        case _ => fittingData.map(s => s.getStrength(source))
+          .filter(s => s != 0)
+          .sum / (sampleSize * normalProportion)
+      }
+    }
 
   /** The zero strength probabilities of each of the WiFi source */
-  def zeroProportions: Seq[Double] = for (source <- 0 until dimensions)
+  lazy val zeroProportions: Seq[Double] = for (source <- 0 until dimensions)
     yield fittingData.count(s => s.getStrength(source) == 0)
       .toDouble / fittingData.size
+
+  def logLikelihoods(source: Int): Seq[Double] = (0 to 100)
+    .map(v => if(v == 0) zeroProportions(source) else distributions(source).probability(v - 0.5, v + 0.5))
+    .map(v => Math.log10(math.max(SMOOTHING, v)))
+
+  def logLikelihood(observation: Observation) = {
+    logLikelihoods(observation.sensorIndex)(observation.value)
+  }
 
 }
 
