@@ -44,42 +44,14 @@ class Sensor(fittingData: List[Strengths]) {
   /** Size of the samples used to infer the sensor information */
   lazy val sampleSize: Int = fittingData.size
 
-  /** The strength distributions [0, 100] of the different WiFi sources
-    *
-    * TODO: Not quite exact, as the whole gaussian won't fit ]0, 100] like this.
-    */
-  val distributions: Seq[NormalDistribution] = for (source <- 0 until dimensions)
-    yield new NormalDistribution(nonZeroMeans(source), math.max(nonZeroVariances(source), 1.0))
-
-  /** The variance of the data points that aren't zero - zeroes are expected to form a separate spike */
-  lazy val nonZeroVariances: Seq[Double] = for (source <- 0 until dimensions) yield {
-    // With n = 1 variance is undefined and yet we want to have there something, so... Could think this a bit more.
-    val n = math.max(sampleSize * (1 - zeroProportions(source)), 2)
-    fittingData.map(s => s.getStrength(source))
-      .filter(s => s != 0)
-      .map(s => (nonZeroMeans(source) - s) * (nonZeroMeans(source) - s))
-      .sum / (n - 1)
-  }
-
-  /** The variance of the data points that aren't zero */
-  lazy val nonZeroMeans: Seq[Double] = for (source <- 0 until dimensions)
-    yield {
-      val normalProportion = 1 - zeroProportions(source)
-      normalProportion match {
-        case 0 => -10
-        case _ => fittingData.map(s => s.getStrength(source))
-          .filter(s => s != 0)
-          .sum / (sampleSize * normalProportion)
-      }
-    }
-
   /** The zero strength probabilities of each of the WiFi source */
-  lazy val zeroProportions: Seq[Double] = for (source <- 0 until dimensions)
-    yield fittingData.count(s => s.getStrength(source) == 0)
-      .toDouble / fittingData.size
+  lazy val zeroProportions: Seq[Seq[Double]] = for (source <- 0 until dimensions)
+    yield (0 to 100).map(v => {
+      fittingData.count(s => s.getStrength(source) == v)
+        .toDouble / fittingData.size
+    })
 
-  def logLikelihoods(source: Int): Seq[Double] = (0 to 100)
-    .map(v => if(v == 0) zeroProportions(source) else distributions(source).probability(v - 0.5, v + 0.5))
+  def logLikelihoods(source: Int): Seq[Double] = zeroProportions(source)
     .map(v => Math.log10(math.max(SMOOTHING, v)))
 
   def logLikelihood(observation: Observation) = {

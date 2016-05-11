@@ -2,7 +2,8 @@ import scala.util.Random
 
 /** The main action of the system should happen here
   *
-  * Best score: -21417.37574075611
+  * Best score with old normal distributions: -21417.37574075611
+  * Best score with discrete distribution: -14883.096604932123
   *
   * Target minimum score: -22700.896102278213
   */
@@ -30,8 +31,7 @@ object WiFiPredictor {
     bufferedSource.close
     observations
   }
-
-  //@tailrec
+  
   def evaluate(sensors: Seq[(Double, Sensor)], observation: Strengths, oIndex: Int): Double = {
     if (oIndex == observation.size)
       return 0
@@ -94,7 +94,7 @@ object WiFiPredictor {
   }
 
   def main(params: Array[String]) {
-    val trainingData = Random.shuffle(loadData()).take(DATA_SIZE_LIMIT)
+    val trainingData = Random.shuffle(loadData())
     val sensors = Clustering.findSensors(trainingData, SENSOR_COUNT)
     val initialDistribution: Seq[(Double, Sensor)] = sensors.map(s => (0.0, s))
     process(initialDistribution, new Strengths(Array.emptyIntArray))

@@ -25,21 +25,4 @@ class ClusteringSpec extends FlatSpec {
       assert(s.sampleSize == 2)
   }
 
-  "findSensors" should "produce sensors with correct zero proportions" in {
-    for (s <- Clustering.findSensors(simpleStrengths, 2))
-      assert(s.zeroProportions.head == 0)
-  }
-
-  "findSensors" should "produce sensors with correct means" in {
-    for (s <- Clustering.findSensors(simpleStrengths, 2)) {
-        val mean = s.nonZeroMeans.head
-        assert(mean === 1.5 || mean === 10.5)
-    }
-  }
-
-  "findSensors" should "produce sensors with correct variances" in {
-    for(s <- Clustering.findSensors(simpleStrengths, 2))
-      assert(s.nonZeroVariances.head === 0.5)
-  }
-
 }
