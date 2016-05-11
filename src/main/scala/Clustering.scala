@@ -19,6 +19,10 @@ class Strengths(data: Array[Int]) extends Clusterable  {
 
   /** Gets the Wifi strength of the given source device index */
   def getStrength(source: Int): Int = data(source)
+
+  def +(o: Observation): Strengths = new Strengths(data :+ o.value)
+
+  def apply(): Strengths = new Strengths(Array.emptyIntArray)
 }
 
 /** Representation of a WiFi sensor

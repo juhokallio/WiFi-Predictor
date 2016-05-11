@@ -1,6 +1,10 @@
 import scala.util.Random
 
 /** The main action of the system should happen here
+  *
+  * Best score: -21417.37574075611
+  *
+  * Target minimum score: -22700.896102278213
   */
 object WiFiPredictor {
 
@@ -15,7 +19,7 @@ object WiFiPredictor {
     * The CSV file contains 94671 observation samples, which is too much for development use (at least with the currect
     * performance).
     */
-  val DATA_SIZE_LIMIT = 50000
+  val DATA_SIZE_LIMIT = 8000
 
   /** Loads the CSV WiFi strength observation data to form that the rest of the system can work with */
   def loadData(): List[Strengths] = {
@@ -39,10 +43,21 @@ object WiFiPredictor {
     likelihood + evaluate(newDist, observation, oIndex + 1)
   }
 
-  def main(params: Array[String]) {
+  def evaluate(sensors: Seq[(Double, Sensor)], observation: Strengths, oIndex: Int, outputs: Seq[String]): Double = {
+    if (oIndex == observation.size)
+      return 0
+    val o: Observation = Observation(oIndex, observation.getStrength(oIndex))
+    val newDist: Seq[(Double, Sensor)] = StrengthPredictor.predictSensorDistribution(sensors, o)
+    val correct = observation.getStrength(oIndex)
+    val likelihood: Double = StrengthPredictor.predict(newDist, oIndex)(correct)
+    println (oIndex + " p: " + Math.pow(10, likelihood))
+    likelihood + evaluate(newDist, observation, oIndex + 1)
+  }
+
+  def test() {
     val t0 = System.currentTimeMillis()
     println("Starting WiFi predictor")
-    val observations = Random.shuffle(loadData().take(DATA_SIZE_LIMIT))
+    val observations = Random.shuffle(loadData()).take(DATA_SIZE_LIMIT)
     val t1 = System.currentTimeMillis()
     println("\nData loaded and shuffled in " + (t1 - t0) / 1000 + "s")
     val (trainingData, testData) = observations.splitAt(observations.size - TEST_DATA_SIZE)
@@ -59,5 +74,29 @@ object WiFiPredictor {
     println("\nTesting done with " + testData.size + " samples in " + (t4 - t3) / 1000 + "s")
     println("\tTotal loglikelihood was " + logLikelihood)
 
+  }
+
+  def process(sensors: Seq[(Double, Sensor)], observation: Strengths): Unit = {
+    val output: String = StrengthPredictor.predict(sensors, observation.size)
+      .map(ll => Math.pow(10, ll))
+      .mkString(",")
+    println(output)
+    val input: String = io.StdIn.readLine()
+    if (input.equals("n"))
+      return
+    val o: Observation = Observation(observation.size, Integer.parseInt(input))
+    val newDist: Seq[(Double, Sensor)] = StrengthPredictor.predictSensorDistribution(sensors, o)
+
+    if (observation.size < 302)
+      process(newDist, observation + o)
+    else
+      process(sensors.map{case (_, s) => (0.0, s)}, new Strengths(Array.emptyIntArray))
+  }
+
+  def main(params: Array[String]) {
+    val trainingData = Random.shuffle(loadData()).take(DATA_SIZE_LIMIT)
+    val sensors = Clustering.findSensors(trainingData, SENSOR_COUNT)
+    val initialDistribution: Seq[(Double, Sensor)] = sensors.map(s => (0.0, s))
+    process(initialDistribution, new Strengths(Array.emptyIntArray))
   }
 }
